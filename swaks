@@ -398,6 +398,140 @@ sub tls_post_start {
 	}
 }
 
+sub tls_verify_callback {
+	my $preverify_ok = shift;
+	my $x509_ctx     = shift;
+	my @failures     = ();
+	my $t            = $G::link{tls};
+
+	# this callback is called twice and I can't figure out why.  The first seems to have the values I want
+	# to see, so if we're called multiple times, use the status from the first call
+	if (defined($t->{server_cert_verification_status})) {
+		return $t->{server_cert_verification_status};
+	}
+
+# print STDERR "pre-verify = $preverify_ok, ", Net::SSLeay::get_verify_result($t->{ssl}), "\n";
+# print STDERR "CTX_get0_param = ", Net::SSLeay::CTX_get0_param($t->{con}), "\n";
+
+	# we don't have to do the ca verification, that's handled before we get here
+	if ($preverify_ok) {
+		$t->{server_cert_verified_ca} = 1;
+	}
+	else {
+		push(@failures, "server certificate not signed by known CA");
+	}
+# print STDERR "in callback 1\n";
+	$t->{server_cert_host_target} = $G::tls_verify_target || $G::link{server};
+	if (!$t->{server_cert_host_target}) {
+		push(@failures, "no host available for host verification");
+	}
+	else {
+		my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
+		if ($t->{server_cert_host_target} =~ /(:|^\d+\.\d+\.\d+\.\d+$)/) {
+			# verify as an IP
+			if (Net::SSLeay::X509_check_ip_asc($x509, $t->{server_cert_host_target}, 0) == 1) {
+				$t->{server_cert_verified_host} = 1;
+			}
+		}
+		else {
+			# verify as a hostname
+# print STDERR "verifying hostname\n";
+			if (Net::SSLeay::X509_check_host($x509, $t->{server_cert_host_target}, 0) == 1) {
+# print STDERR "verify succeeded\n";
+				$t->{server_cert_verified_host} = 1;
+			}
+# else {
+# 	print STDERR "verify failed\n";
+# }
+		}
+
+		if (!$t->{server_cert_verified_host}) {
+			push(@failures, 'server certificate did not match target host ' . $t->{server_cert_host_target});
+		}
+	}
+
+	$t->{verify_failure_message} = join(', ', @failures);
+
+	if ($G::tls_verify_ca && !$t->{server_cert_verified_ca}) {
+		$t->{server_cert_verification_status} = 0;
+		return 0;
+	}
+	if ($G::tls_verify_host && !$t->{server_cert_verified_host}) {
+		$t->{server_cert_verification_status} = 0;
+		return 0;
+	}
+
+	$t->{server_cert_verification_status} = 1;
+	return 1;
+}
+
+sub tls_verify_callback_NEW {
+	my $preverify_ok = shift;
+	my $x509_ctx     = shift;
+	my @failures     = ();
+	my $t            = $G::link{tls};
+
+	# this callback is called twice and I can't figure out why.  The first seems to have the values I want
+	# to see, so if we're called multiple times, use the status from the first call
+	if (defined($t->{server_cert_verification_status})) {
+		return $t->{server_cert_verification_status};
+	}
+
+print STDERR "pre-verify = $preverify_ok, ", Net::SSLeay::get_verify_result($t->{ssl}), "\n";
+# print STDERR "CTX_get0_param = ", Net::SSLeay::CTX_get0_param($t->{con}), "\n";
+
+	# we don't have to do the ca verification, that's handled before we get here
+	if ($preverify_ok) {
+		$t->{server_cert_verified_ca} = 1;
+	}
+	else {
+		push(@failures, "server certificate not signed by known CA");
+	}
+# print STDERR "in callback 1\n";
+	$t->{server_cert_host_target} = $G::tls_verify_target || $G::link{server};
+	if (!$t->{server_cert_host_target}) {
+		push(@failures, "no host available for host verification");
+	}
+	else {
+		my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
+		if ($t->{server_cert_host_target} =~ /(:|^\d+\.\d+\.\d+\.\d+$)/) {
+			# verify as an IP
+			if (Net::SSLeay::X509_check_ip_asc($x509, $t->{server_cert_host_target}, 0) == 1) {
+				$t->{server_cert_verified_host} = 1;
+			}
+		}
+		else {
+			# verify as a hostname
+# print STDERR "verifying hostname\n";
+			if (Net::SSLeay::X509_check_host($x509, $t->{server_cert_host_target}, 0) == 1) {
+# print STDERR "verify succeeded\n";
+				$t->{server_cert_verified_host} = 1;
+			}
+# else {
+# 	print STDERR "verify failed\n";
+# }
+		}
+
+		if (!$t->{server_cert_verified_host}) {
+			push(@failures, 'server certificate did not match target host ' . $t->{server_cert_host_target});
+		}
+	}
+
+	$t->{verify_failure_message} = join(', ', @failures);
+
+	if ($G::tls_verify_ca && !$t->{server_cert_verified_ca}) {
+		$t->{server_cert_verification_status} = 0;
+		return 0;
+	}
+	elsif ($G::tls_verify_host && !$t->{server_cert_verified_host}) {
+		$t->{server_cert_verification_status} = 0;
+		return 0;
+	}
+
+	$t->{server_cert_verification_status} = 1;
+	return 1;
+}
+
 sub start_tls {
 	my %t         = (); # This is a convenience var to access $G::link{tls}{...}
 	$G::link{tls} = \%t;
@@ -435,71 +569,8 @@ sub start_tls {
 	$t{server_cert_verified_host}       = 0;
 	$t{server_cert_host_target}         = '';
 	$t{server_cert_verification_status} = undef;
-	Net::SSLeay::CTX_set_verify($t{con}, &Net::SSLeay::VERIFY_PEER, sub {
-		my $preverify_ok = shift;
-		my $x509_ctx     = shift;
-		my @failures     = ();
-
-		# this callback is called twice and I can't figure out why.  The first seems to have the values I want
-		# to see, so if we're called multiple times, use the status from the first call
-		if (defined($t{server_cert_verification_status})) {
-			return $t{server_cert_verification_status};
-		}
-
-print STDERR "pre-verify = $preverify_ok, ", Net::SSLeay::get_verify_result($t{ssl}), "\n";
-print STDERR "CTX_get0_param = ", Net::SSLeay::CTX_get0_param($t{con}), "\n";
-
-		# we don't have to do the ca verification, that's handled before we get here
-		if ($preverify_ok) {
-			$t{server_cert_verified_ca} = 1;
-		}
-		else {
-			push(@failures, "server certificate not signed by known CA");
-		}
-print STDERR "in callback 1\n";
-		$t{server_cert_host_target} = $G::tls_verify_target || $G::link{server};
-		if (!$t{server_cert_host_target}) {
-			push(@failures, "no host available for host verification");
-		}
-		else {
-			my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
-			if ($t{server_cert_host_target} =~ /(:|^\d+\.\d+\.\d+\.\d+$)/) {
-				# verify as an IP
-				if (Net::SSLeay::X509_check_ip_asc($x509, $t{server_cert_host_target}, 0) == 1) {
-					$t{server_cert_verified_host} = 1;
-				}
-			}
-			else {
-				# verify as a hostname
-print STDERR "verifying hostname\n";
-				if (Net::SSLeay::X509_check_host($x509, $t{server_cert_host_target}, 0) == 1) {
-print STDERR "verify succeeded\n";
-					$t{server_cert_verified_host} = 1;
-				}
-else {
-	print STDERR "verify failed\n";
-}
-			}
-
-			if (!$t{server_cert_verified_host}) {
-				push(@failures, 'server certificate did not match target host ' . $t{server_cert_host_target});
-			}
-		}
-
-		$t{verify_failure_message} = join(', ', @failures);
-
-		if ($G::tls_verify_ca && !$t{server_cert_verified_ca}) {
-			$t{server_cert_verification_status} = 0;
-			return 0;
-		}
-		if ($G::tls_verify_host && !$t{server_cert_verified_host}) {
-			$t{server_cert_verification_status} = 0;
-			return 0;
-		}
-
-		$t{server_cert_verification_status} = 1;
-		return 1;
-	});
+	#Net::SSLeay::CTX_set_verify($t{con}, &Net::SSLeay::VERIFY_PEER, \&tls_verify_callback);
+	Net::SSLeay::CTX_set_verify($t{con}, &Net::SSLeay::VERIFY_NONE, \&tls_verify_callback_NEW);
 
 	# This callback is called at various stages of the TLS negotiation.  Currently used to determine whether the server requested
 	# a certificate. CTX_set_client_cert_cb (cf https://www.openssl.org/docs/man1.1.1/man3/SSL_CTX_set_client_cert_cb.html)
