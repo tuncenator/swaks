@@ -446,6 +446,8 @@ sub start_tls {
 			return $t{server_cert_verification_status};
 		}
 
+print STDERR "pre-verify = $preverify_ok, ", Net::SSLeay::get_verify_result($t{ssl}), "\n";
+
 		# we don't have to do the ca verification, that's handled before we get here
 		if ($preverify_ok) {
 			$t{server_cert_verified_ca} = 1;
@@ -453,7 +455,7 @@ sub start_tls {
 		else {
 			push(@failures, "server certificate not signed by known CA");
 		}
-
+print STDERR "in callback 1\n";
 		$t{server_cert_host_target} = $G::tls_verify_target || $G::link{server};
 		if (!$t{server_cert_host_target}) {
 			push(@failures, "no host available for host verification");
@@ -468,9 +470,14 @@ sub start_tls {
 			}
 			else {
 				# verify as a hostname
+print STDERR "verifying hostname\n";
 				if (Net::SSLeay::X509_check_host($x509, $t{server_cert_host_target}, 0) == 1) {
+print STDERR "verify succeeded\n";
 					$t{server_cert_verified_host} = 1;
 				}
+else {
+	print STDERR "verify failed\n";
+}
 			}
 
 			if (!$t{server_cert_verified_host}) {
