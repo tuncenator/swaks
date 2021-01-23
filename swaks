@@ -447,6 +447,7 @@ sub start_tls {
 		}
 
 print STDERR "pre-verify = $preverify_ok, ", Net::SSLeay::get_verify_result($t{ssl}), "\n";
+print STDERR "CTX_get0_param = ", Net::SSLeay::CTX_get0_param($t{con}), "\n";
 
 		# we don't have to do the ca verification, that's handled before we get here
 		if ($preverify_ok) {
