@@ -477,7 +477,7 @@ sub tls_verify_callback_NEW {
 		return $t->{server_cert_verification_status};
 	}
 
-print STDERR "pre-verify = $preverify_ok, ", Net::SSLeay::get_verify_result($t->{ssl}), "\n";
+print STDERR "pre-verify = $preverify_ok\n";
 # print STDERR "CTX_get0_param = ", Net::SSLeay::CTX_get0_param($t->{con}), "\n";
 
 	# we don't have to do the ca verification, that's handled before we get here
@@ -563,6 +563,26 @@ sub start_tls {
 		}
 	}
 	Net::SSLeay::CTX_set_options($t{con}, $ctx_options);
+
+
+
+
+
+
+	my $vpm = Net::SSLeay::CTX_get0_param($t{con});
+	my $flags = Net::SSLeay::X509_VERIFY_PARAM_get_flags($vpm);
+	if ($flags & &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME) {
+		print STDERR "X509_V_FLAG_NO_CHECK_TIME is set\n";
+	}
+	else {
+		print STDERR "X509_V_FLAG_NO_CHECK_TIME is NOT set\n";
+	}
+	Net::SSLeay::X509_VERIFY_PARAM_clear_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
+	Net::SSLeay::CTX_set1_param($t{con}, $vpm);
+	# Net::SSLeay::X509_VERIFY_PARAM_free($vpm);
+
+
+
 
 	$t{verify_failure_message}          = '';
 	$t{server_cert_verified_ca}         = 0;
