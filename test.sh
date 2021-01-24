@@ -38,7 +38,7 @@ echo "test 00255 (signed but expired) (expect: fail, fail)"
 
 echo "test 00263 (signed, target set to --tls-verify-target node.example.com) (expect pass, pass)"
 ./swaks --to user@host1.nodns.test.swaks.net --from recip@host1.nodns.test.swaks.net --helo hserver \
-  --tls --quit tls --tls-verify-ca --tls-verify-target node.example.com --tls-ca-path testing/certs/ca.pem \
+  --tls --quit tls --tls-verify-ca --tls-verify-target node.example.com --tls-ca-path testing/certs/ca.pem --tls-get-peer-cert \
   --pipe 'testing/server/smtp-server.pl --silent --domain pipe \
     --cert testing/certs/node.example.com.crt --key testing/certs/node.example.com.key \
     part-0000-connect-standard.txt \

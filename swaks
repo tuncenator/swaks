@@ -477,9 +477,6 @@ sub tls_verify_callback_NEW {
 		return $t->{server_cert_verification_status};
 	}
 
-print STDERR "pre-verify = $preverify_ok\n";
-# print STDERR "CTX_get0_param = ", Net::SSLeay::CTX_get0_param($t->{con}), "\n";
-
 	# we don't have to do the ca verification, that's handled before we get here
 	if ($preverify_ok) {
 		$t->{server_cert_verified_ca} = 1;
@@ -487,7 +484,9 @@ print STDERR "pre-verify = $preverify_ok\n";
 	else {
 		push(@failures, "server certificate not signed by known CA");
 	}
-# print STDERR "in callback 1\n";
+
+	# get
+
 	$t->{server_cert_host_target} = $G::tls_verify_target || $G::link{server};
 	if (!$t->{server_cert_host_target}) {
 		push(@failures, "no host available for host verification");
@@ -502,14 +501,9 @@ print STDERR "pre-verify = $preverify_ok\n";
 		}
 		else {
 			# verify as a hostname
-# print STDERR "verifying hostname\n";
 			if (Net::SSLeay::X509_check_host($x509, $t->{server_cert_host_target}, 0) == 1) {
-# print STDERR "verify succeeded\n";
 				$t->{server_cert_verified_host} = 1;
 			}
-# else {
-# 	print STDERR "verify failed\n";
-# }
 		}
 
 		if (!$t->{server_cert_verified_host}) {
@@ -592,7 +586,7 @@ sub start_tls {
 
 
 
-	# my $vpm = Net::SSLeay::CTX_get0_param($t{con});
+	my $vpm = Net::SSLeay::CTX_get0_param($t{con});
 	# print STDERR "vpm = $vpm\n";
 	# my $flags = Net::SSLeay::X509_VERIFY_PARAM_get_flags($vpm);
 	# dumpFlags($flags);
@@ -604,8 +598,8 @@ sub start_tls {
 	# 	print STDERR "X509_V_FLAG_NO_CHECK_TIME is NOT set\n";
 	# }
 	# # Net::SSLeay::X509_VERIFY_PARAM_clear_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
-	# Net::SSLeay::X509_VERIFY_PARAM_set_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
-	# Net::SSLeay::CTX_set1_param($t{con}, $vpm);
+	Net::SSLeay::X509_VERIFY_PARAM_set_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
+	Net::SSLeay::CTX_set1_param($t{con}, $vpm);
 	# $flags = Net::SSLeay::X509_VERIFY_PARAM_get_flags($vpm);
 	# dumpFlags($flags);
 	# # Net::SSLeay::X509_VERIFY_PARAM_free($vpm);
@@ -642,6 +636,7 @@ sub start_tls {
 	$t{verify_failure_message}          = '';
 	$t{server_cert_verified_ca}         = 0;
 	$t{server_cert_verified_host}       = 0;
+	# $t{server_cert_verified_time}       = 0;
 	$t{server_cert_host_target}         = '';
 	$t{server_cert_verification_status} = undef;
 	#Net::SSLeay::CTX_set_verify($t{con}, &Net::SSLeay::VERIFY_PEER, \&tls_verify_callback);
