@@ -475,6 +475,10 @@ sub tls_verify_callback_NEW {
 	my @failures     = ();
 	my $t            = $G::link{tls};
 
+	my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
+	print STDERR "pre-verify = $preverify_ok, current cert: ", Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509)), "\n";
+
+
 	# this callback is called twice sometimes and I can't figure out why.  The first seems to have the values I want
 	# to see, so if we're called multiple times, use the status from the first call
 	if (defined($t->{server_cert_verification_status})) {
@@ -489,7 +493,7 @@ sub tls_verify_callback_NEW {
 		push(@failures, "server certificate not signed by known CA");
 	}
 
-	my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
+	# my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
 	$t->{server_cert_verified_time_nb} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notBefore($x509));
 	$t->{server_cert_verified_time_na} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notAfter($x509));
 	print STDERR "notBefore = ", $t->{server_cert_verified_time_nb}, "\n";
