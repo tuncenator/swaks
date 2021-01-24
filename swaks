@@ -592,24 +592,25 @@ sub start_tls {
 
 
 
-	my $vpm = Net::SSLeay::CTX_get0_param($t{con});
-	print STDERR "vpm = $vpm\n";
-	my $flags = Net::SSLeay::X509_VERIFY_PARAM_get_flags($vpm);
-	dumpFlags($flags);
-	print STDERR "flags = $flags\n";
-	if ($flags & &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME) {
-		print STDERR "X509_V_FLAG_NO_CHECK_TIME is set\n";
-	}
-	else {
-		print STDERR "X509_V_FLAG_NO_CHECK_TIME is NOT set\n";
-	}
-	# Net::SSLeay::X509_VERIFY_PARAM_clear_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
-	Net::SSLeay::X509_VERIFY_PARAM_set_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
-	Net::SSLeay::CTX_set1_param($t{con}, $vpm);
-	$flags = Net::SSLeay::X509_VERIFY_PARAM_get_flags($vpm);
-	dumpFlags($flags);
-	# Net::SSLeay::X509_VERIFY_PARAM_free($vpm);
-
+	# my $vpm = Net::SSLeay::CTX_get0_param($t{con});
+	# print STDERR "vpm = $vpm\n";
+	# my $flags = Net::SSLeay::X509_VERIFY_PARAM_get_flags($vpm);
+	# dumpFlags($flags);
+	# print STDERR "flags = $flags\n";
+	# if ($flags & &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME) {
+	# 	print STDERR "X509_V_FLAG_NO_CHECK_TIME is set\n";
+	# }
+	# else {
+	# 	print STDERR "X509_V_FLAG_NO_CHECK_TIME is NOT set\n";
+	# }
+	# # Net::SSLeay::X509_VERIFY_PARAM_clear_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
+	# Net::SSLeay::X509_VERIFY_PARAM_set_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
+	# Net::SSLeay::CTX_set1_param($t{con}, $vpm);
+	# $flags = Net::SSLeay::X509_VERIFY_PARAM_get_flags($vpm);
+	# dumpFlags($flags);
+	# # Net::SSLeay::X509_VERIFY_PARAM_free($vpm);
+	# my $foo = Net::SSLeay::X509_VERIFY_PARAM_get_time($vpm);
+	# print STDERR "foo = $foo\n";
 
 
 
