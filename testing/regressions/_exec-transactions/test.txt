@@ -76,8 +76,8 @@
    69 --tls-verify      FAIL (bad  ca, good host)
    70 --tls-verify      FAIL (good ca, bad  host)
    71 --tls-verify      PASS (good ca, good host)
-   72 --tls-verify-ca   FAIL (bad  ca, NO  host) (the point of this test is because the "no host" error shown when tls negotiation fails is unique)
-   73 --tls-verify-ca   FAIL (bad  ca, PRESENT BUT INCORRECT  host) (ensure the version of the failure message which includes the hostname)
+   72 --tls-verify-ca   FAIL (bad  ca, NO  host) (the point of this test is because the "no host" error shown when tls negotiation fails is unique - but not really an issue anymore after verfication rework)
+   73 --tls-verify-ca   FAIL (bad  ca, PRESENT BUT INCORRECT  host) (ensure the version of the failure message which includes the hostname - but not really an issue anymore after verfication rework)
 
 
 00300 - xclient (COMPLETE)
