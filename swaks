@@ -646,6 +646,7 @@ sub tls_verify_callback_NEW {
 
 	my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
 	$certInfo->{dn} = Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509));
+print STDERR "in callback with DN=$certInfo->{dn}\n";
 	#print STDERR "pre-verify = $preverify_ok, current cert: ", Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509)), "\n";
 
 
