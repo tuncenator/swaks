@@ -476,6 +476,10 @@ sub tls_verify_callback_NEW {
 	my $t            = $G::link{tls};
 
 	my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
+	# my $x509_stack = Net::SSLeay::
+	print STDERR "Perl version: ", $^V, "\n";
+	print STDERR "Net::SSLeay version: ", $Net::SSLeay::VERSION, "\n";
+	print STDERR "underlying openssl version: ", Net::SSLeay::SSLeay_version(), "\n";
 	print STDERR "pre-verify = $preverify_ok, current cert: ", Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509)), "\n";
 
 
