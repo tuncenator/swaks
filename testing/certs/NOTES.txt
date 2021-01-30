@@ -2,6 +2,8 @@
 root ca:
   openssl genrsa -out ca.key 2048
   openssl req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.pem -subj "/C=US/ST=Indiana/O=Swaks Development/CN=Swaks Root CA/emailAddress=proj-swaks@jetmore.net"
+  openssl genrsa -out ca-expired.key 2048
+  openssl req -x509 -new -nodes -key ca-expired.key -sha256 -days 1 -out ca-expired.pem -subj "/C=US/ST=Indiana/O=Swaks Development/CN=Swaks Root CA (expired)/emailAddress=proj-swaks@jetmore.net"
 
 get contents of a crt:
   openssl x509 -text -in signed.example.com.crt
@@ -11,6 +13,20 @@ test if a crt is signed:
 
 regenerate the hashes used by --tls-ca-path when provided with a path instead of a directory
   /usr/local/Cellar/openssl@1.1/1.1.1h/bin/c_rehash ~/Documents/git/swaks/testing/certs
+
+CAs:
+
+ca.pem
+	Generated: openssl genrsa -out ca.key 2048
+	Generated: req -x509 -new -nodes -key ca.key -sha256 -days 3650 -out ca.pem -subj "/C=US/ST=Indiana/O=Swaks Development/CN=Swaks Root CA/emailAddress=proj-swaks@jetmore.net"
+	Subject: C=US, ST=Indiana, O=Swaks Development, CN=Swaks Root CA/emailAddress=proj-swaks@jetmore.net
+	Not After : Dec 11 15:28:17 2030 GMT
+
+ca-expired.pem:
+	Generated: genrsa -out ca-expired.key 2048
+	Generated: openssl req -x509 -new -nodes -key ca-expired.key -sha256 -days 1 -out ca-expired.pem -subj "/C=US/ST=Indiana/O=Swaks Development/CN=Swaks Root CA (expired)/emailAddress=proj-swaks@jetmore.net"
+	Subject: C=US, ST=Indiana, O=Swaks Development, CN=Swaks Root CA (expired)/emailAddress=proj-swaks@jetmore.net
+	Not After : Jan 31 15:36:19 2021 GMT
 
 
 GENERAL PURPOSE CERTS:
@@ -110,3 +126,12 @@ san-multiple.example.com.crt, .key
 	Signed: ca.pem
 	X509v3 Subject Alternative Name:
 		DNS:san-multiple.example.com, DNS:san-m1.example.com, DNS:san-m2.example.com
+
+expired-ca.example.com.crt, .key
+	Comment: a cert which is not itself expired, but is signed by an expired CA
+	Generated: ./generate-cert.pl --signed --ca ca-expired expired-ca.example.com
+	Subject: C=US, ST=Indiana, O=Swaks Development (expired-ca.example.com, +SAN), CN=expired-ca.example.com/emailAddress=proj-swaks@jetmore.net
+	Not After : Dec  9 15:42:30 2030 GMT
+	Signed: ca-expired.pem
+	X509v3 Subject Alternative Name:
+		DNS:expired-ca.example.com
