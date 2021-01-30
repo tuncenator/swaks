@@ -641,14 +641,23 @@ sub tls_verify_callback_NEW {
 		verified_time => 0,
 		verified_host => 0,
 		dn            => '',
+		fingerprint   => '',
 	};
-	push(@{$t->{server_cert_stack}}, $certInfo);
 
-	my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
-	$certInfo->{dn} = Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509));
-print STDERR "in callback with DN=$certInfo->{dn}\n";
+	my $x509                 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
+	$certInfo->{dn}          = Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509));
+	$certInfo->{fingerprint} = Net::SSLeay::X509_get_fingerprint($x509, 'sha256');
+print STDERR "in callback with DN=$certInfo->{dn}, $certInfo->{fingerprint}\n";
 	#print STDERR "pre-verify = $preverify_ok, current cert: ", Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509)), "\n";
 
+	# for some reason, in every environment, we get called twice on the last certificate (maybe that would have been a way to tell
+	# we're on the last cert?  Oh well).  If we've seen this fingerprint before, don't attempt to re-verify it.
+	if (grep { $_->{fingerprint} eq $certInfo->{fingerprint} } (@{$t->{server_cert_stack}})) {
+		return 1;
+	}
+
+	# if we're proceeding, we can put this cert on the list of all certs
+	push(@{$t->{server_cert_stack}}, $certInfo);
 
 	# this callback is called twice sometimes and I can't figure out why.  The first seems to have the values I want
 	# to see, so if we're called multiple times, use the status from the first call
