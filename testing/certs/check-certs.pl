@@ -25,7 +25,7 @@ if (!$ca) {
 
 my $store = Net::SSLeay::X509_STORE_new();
 if (!$store) {
-	die "Error creating X509_STORE_CTX object\n";
+	die "Error creating X509_STORE object\n";
 }
 if ($caFile) {
 	if (!Net::SSLeay::X509_STORE_add_cert($store, $ca)) {
