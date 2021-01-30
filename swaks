@@ -440,7 +440,7 @@ sub tls_post_start {
 	# ));
 
 	if ($G::tls_get_peer_cert eq 'STDOUT') {
-		ptrans(12, $G::link{tls}{cert_x509});
+		ptrans(11, $G::link{tls}{cert_x509});
 	} elsif ($G::tls_get_peer_cert) {
 		open(CERT, ">$G::tls_get_peer_cert") ||
 			ptrans(12, "Couldn't open $G::tls_get_peer_cert for writing: $!");
