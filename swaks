@@ -779,9 +779,9 @@ sub start_tls {
 	}
 
 	# we explicitly turn off time checking.  This allows us to conditionally check for it later.
-	# my $vpm = Net::SSLeay::CTX_get0_param($t{con});
-	# Net::SSLeay::X509_VERIFY_PARAM_set_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
-	# Net::SSLeay::CTX_set1_param($t{con}, $vpm);
+	my $vpm = Net::SSLeay::CTX_get0_param($t{con});
+	Net::SSLeay::X509_VERIFY_PARAM_set_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
+	Net::SSLeay::CTX_set1_param($t{con}, $vpm);
 
 	my $ctx_options = &Net::SSLeay::OP_ALL;
 	if (scalar(@G::tls_protocols)) {
