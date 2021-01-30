@@ -196,8 +196,7 @@ sub sendmail {
 
 	# start up tls if -tlsc specified
 	if ($G::tls_on_connect) {
-		if (start_tls()) {
-			tls_post_start();
+		if (start_tls() && tls_post_start()) {
 			do_smtp_drop()     if ($G::drop_after eq 'tls' || $G::drop_after_send eq 'tls');
 			do_smtp_quit(1, 0) if ($G::quit_after eq 'tls');
 		} else {
@@ -374,23 +373,68 @@ sub xclient_try {
 }
 
 sub tls_post_start {
-	ptrans(11, "TLS started with cipher $G::link{tls}{cipher_string}");
-	ptrans(11, "TLS client certificate " . ($G::link{tls}{server_requested_cert} ? '' : 'not ') . "requested and " . ($G::link{tls}{client_sent_cert} ? '' : 'not ') . "sent");
+	my $overallSuccess = 1;
+
 	if ($G::link{tls}{local_cert_subject}) {
 		ptrans(11, "TLS local DN=\"$G::link{tls}{local_cert_subject}\"");
 	} else {
 		ptrans(11, "TLS no local certificate set");
 	}
-	ptrans(11, "TLS peer DN=\"$G::link{tls}{cert_subject}\"");
-	### WCSXXXFIXME - split this out into three lines, then possibly add a fourth with overall status
-	ptrans(11, sprintf("TLS peer certificate %s CA verification, %s time verification (valid between %s and %s), %s host verification (%s)",
-		$G::link{tls}{server_cert_verified_ca}   ? 'passed' : 'failed',
-		$G::link{tls}{server_cert_verified_time} ? 'passed' : 'failed',
-		$G::link{tls}{server_cert_verified_time_nb},
-		$G::link{tls}{server_cert_verified_time_na},
-		$G::link{tls}{server_cert_verified_host} ? 'passed' : 'failed',
-		$G::link{tls}{server_cert_host_target} ? "using host $G::link{tls}{server_cert_host_target} to verify" : "no host string available to verify"
-	));
+	ptrans(11, "TLS local certificate " . ($G::link{tls}{server_requested_cert} ? '' : 'not ') . "requested and " . ($G::link{tls}{client_sent_cert} ? '' : 'not ') . "sent");
+
+	if (!scalar(@{$G::link{tls}{server_cert_stack}})) {
+		ptrans(11, "TLS no peer certificates sent");
+	}
+	else {
+		for (my $i = 0; $i < scalar(@{$G::link{tls}{server_cert_stack}}); $i++) {
+			my $certInfo = $G::link{tls}{server_cert_stack}[$i];
+			my $prefix   = "TLS peer cert[$i]";
+
+			ptrans(11, sprintf("$prefix DN=\"%s\"", $certInfo->{dn}));
+			ptrans(11, sprintf("$prefix %s CA verification", $certInfo->{verified_ca} ? 'passed' : 'failed'));
+			ptrans(11, sprintf("$prefix %s time verification (valid between %s and %s)",
+				$certInfo->{verified_time} ? 'passed' : 'failed',
+				$certInfo->{verified_time_nb},
+				$certInfo->{verified_time_na},
+			));
+
+			# hostname verification only for the last cert in the chain
+			if ($i + 1 >= scalar(@{$G::link{tls}{server_cert_stack}})) {
+				ptrans(11, sprintf("$prefix %s host verification (%s)",
+					$certInfo->{verified_host} ? 'passed' : 'failed',
+					$G::link{tls}{server_cert_host_target} ? "using host $G::link{tls}{server_cert_host_target} to verify" : "no host string available to verify",
+				));
+
+				if ($G::tls_verify_host && !$certInfo->{verified_host}) {
+					$overallSuccess = 0;
+				}
+			}
+
+			if ($G::tls_verify_ca && !$certInfo->{verified_ca}) {
+				$overallSuccess = 0;
+			}
+			elsif ($G::tls_verify_time && !$certInfo->{verified_time}) {
+				$overallSuccess = 0;
+			}
+		}
+	}
+
+	if ($overallSuccess) {
+		ptrans(12, "TLS one or more required certificate verifications failed, will not proceed");
+		return(0);
+	}
+	ptrans(11, "TLS started with cipher $G::link{tls}{cipher_string}");
+
+	# ptrans(11, "TLS peer DN=\"$G::link{tls}{cert_subject}\"");
+	# ### WCSXXXFIXME - split this out into three lines, then possibly add a fourth with overall status
+	# ptrans(11, sprintf("TLS peer certificate %s CA verification, %s time verification (valid between %s and %s), %s host verification (%s)",
+	# 	$G::link{tls}{server_cert_verified_ca}   ? 'passed' : 'failed',
+	# 	$G::link{tls}{server_cert_verified_time} ? 'passed' : 'failed',
+	# 	$G::link{tls}{server_cert_verified_time_nb},
+	# 	$G::link{tls}{server_cert_verified_time_na},
+	# 	$G::link{tls}{server_cert_verified_host} ? 'passed' : 'failed',
+	# 	$G::link{tls}{server_cert_host_target} ? "using host $G::link{tls}{server_cert_host_target} to verify" : "no host string available to verify"
+	# ));
 
 	if ($G::tls_get_peer_cert eq 'STDOUT') {
 		ptrans(12, $G::link{tls}{cert_x509});
@@ -400,169 +444,309 @@ sub tls_post_start {
 		print CERT $G::link{tls}{cert_x509}, "\n";
 		close(CERT);
 	}
-}
 
-sub tls_verify_callback {
-	my $preverify_ok = shift;
-	my $x509_ctx     = shift;
-	my @failures     = ();
-	my $t            = $G::link{tls};
-
-	# this callback is called twice and I can't figure out why.  The first seems to have the values I want
-	# to see, so if we're called multiple times, use the status from the first call
-	if (defined($t->{server_cert_verification_status})) {
-		return $t->{server_cert_verification_status};
-	}
-
-# print STDERR "pre-verify = $preverify_ok, ", Net::SSLeay::get_verify_result($t->{ssl}), "\n";
-# print STDERR "CTX_get0_param = ", Net::SSLeay::CTX_get0_param($t->{con}), "\n";
-
-	# we don't have to do the ca verification, that's handled before we get here
-	if ($preverify_ok) {
-		$t->{server_cert_verified_ca} = 1;
-	}
-	else {
-		push(@failures, "server certificate not signed by known CA");
-	}
-# print STDERR "in callback 1\n";
-	$t->{server_cert_host_target} = $G::tls_verify_target || $G::link{server};
-	if (!$t->{server_cert_host_target}) {
-		push(@failures, "no host available for host verification");
-	}
-	else {
-		my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
-		if ($t->{server_cert_host_target} =~ /(:|^\d+\.\d+\.\d+\.\d+$)/) {
-			# verify as an IP
-			if (Net::SSLeay::X509_check_ip_asc($x509, $t->{server_cert_host_target}, 0) == 1) {
-				$t->{server_cert_verified_host} = 1;
-			}
-		}
-		else {
-			# verify as a hostname
-# print STDERR "verifying hostname\n";
-			if (Net::SSLeay::X509_check_host($x509, $t->{server_cert_host_target}, 0) == 1) {
-# print STDERR "verify succeeded\n";
-				$t->{server_cert_verified_host} = 1;
-			}
-# else {
-# 	print STDERR "verify failed\n";
-# }
-		}
-
-		if (!$t->{server_cert_verified_host}) {
-			push(@failures, 'server certificate did not match target host ' . $t->{server_cert_host_target});
-		}
-	}
-
-	$t->{verify_failure_message} = join(', ', @failures);
-
-	if ($G::tls_verify_ca && !$t->{server_cert_verified_ca}) {
-		$t->{server_cert_verification_status} = 0;
-		return 0;
-	}
-	if ($G::tls_verify_host && !$t->{server_cert_verified_host}) {
-		$t->{server_cert_verification_status} = 0;
-		return 0;
-	}
-
-	$t->{server_cert_verification_status} = 1;
 	return 1;
 }
 
+# sub tls_verify_callback {
+# 	my $preverify_ok = shift;
+# 	my $x509_ctx     = shift;
+# 	my @failures     = ();
+# 	my $t            = $G::link{tls};
+
+# 	# this callback is called twice and I can't figure out why.  The first seems to have the values I want
+# 	# to see, so if we're called multiple times, use the status from the first call
+# 	if (defined($t->{server_cert_verification_status})) {
+# 		return $t->{server_cert_verification_status};
+# 	}
+
+# # print STDERR "pre-verify = $preverify_ok, ", Net::SSLeay::get_verify_result($t->{ssl}), "\n";
+# # print STDERR "CTX_get0_param = ", Net::SSLeay::CTX_get0_param($t->{con}), "\n";
+
+# 	# we don't have to do the ca verification, that's handled before we get here
+# 	if ($preverify_ok) {
+# 		$t->{server_cert_verified_ca} = 1;
+# 	}
+# 	else {
+# 		push(@failures, "server certificate not signed by known CA");
+# 	}
+# # print STDERR "in callback 1\n";
+# 	$t->{server_cert_host_target} = $G::tls_verify_target || $G::link{server};
+# 	if (!$t->{server_cert_host_target}) {
+# 		push(@failures, "no host available for host verification");
+# 	}
+# 	else {
+# 		my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
+# 		if ($t->{server_cert_host_target} =~ /(:|^\d+\.\d+\.\d+\.\d+$)/) {
+# 			# verify as an IP
+# 			if (Net::SSLeay::X509_check_ip_asc($x509, $t->{server_cert_host_target}, 0) == 1) {
+# 				$t->{server_cert_verified_host} = 1;
+# 			}
+# 		}
+# 		else {
+# 			# verify as a hostname
+# # print STDERR "verifying hostname\n";
+# 			if (Net::SSLeay::X509_check_host($x509, $t->{server_cert_host_target}, 0) == 1) {
+# # print STDERR "verify succeeded\n";
+# 				$t->{server_cert_verified_host} = 1;
+# 			}
+# # else {
+# # 	print STDERR "verify failed\n";
+# # }
+# 		}
+
+# 		if (!$t->{server_cert_verified_host}) {
+# 			push(@failures, 'server certificate did not match target host ' . $t->{server_cert_host_target});
+# 		}
+# 	}
+
+# 	$t->{verify_failure_message} = join(', ', @failures);
+
+# 	if ($G::tls_verify_ca && !$t->{server_cert_verified_ca}) {
+# 		$t->{server_cert_verification_status} = 0;
+# 		return 0;
+# 	}
+# 	if ($G::tls_verify_host && !$t->{server_cert_verified_host}) {
+# 		$t->{server_cert_verification_status} = 0;
+# 		return 0;
+# 	}
+
+# 	$t->{server_cert_verification_status} = 1;
+# 	return 1;
+# }
+
+# sub tls_verify_callback_NEW1 {
+# 	my $preverify_ok = shift;
+# 	my $x509_ctx     = shift;
+# 	my @failures     = ();
+# 	my $t            = $G::link{tls};
+
+# 	my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
+# 	print STDERR "Perl version: ", $^V, "\n";
+# 	print STDERR "Net::SSLeay version: ", $Net::SSLeay::VERSION, "\n";
+# 	print STDERR "underlying openssl version: ", Net::SSLeay::SSLeay_version(), "\n";
+# 	print STDERR "pre-verify = $preverify_ok, current cert: ", Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509)), "\n";
+
+
+# 	# this callback is called twice sometimes and I can't figure out why.  The first seems to have the values I want
+# 	# to see, so if we're called multiple times, use the status from the first call
+# 	if (defined($t->{server_cert_verification_status})) {
+# 		return $t->{server_cert_verification_status};
+# 	}
+
+# 	# we don't have to do the ca verification, that's handled before we get here
+# 	if ($preverify_ok) {
+# 		$t->{server_cert_verified_ca} = 1;
+# 	}
+# 	else {
+# 		push(@failures, "server certificate not signed by known CA");
+# 	}
+
+# 	# my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
+# 	$t->{server_cert_verified_time_nb} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notBefore($x509));
+# 	$t->{server_cert_verified_time_na} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notAfter($x509));
+# 	print STDERR "notBefore = ", $t->{server_cert_verified_time_nb}, "\n";
+# 	# my $notAfter = Net::SSLeay::X509_get_notAfter($x509);
+# 	print STDERR "notAfter = ", $t->{server_cert_verified_time_na}, "\n";
+
+# 	# WCSXXXFIXME - handle the module not being available, handle the date strings not parsing
+# 	# use Time::Piece qw();
+# 	# my $notBeforeEpoch = Time::Piece->strptime($t->{server_cert_verified_time_nb}, "%FT%TZ")->epoch();
+# 	# my $notAfterEpoch = Time::Piece->strptime($t->{server_cert_verified_time_na}, "%FT%TZ")->epoch();
+# 	my $notBeforeEpoch = 0; #Time::Piece->strptime($t->{server_cert_verified_time_nb}, "%FT%TZ")->epoch();
+# 	my $notAfterEpoch = 0; #Time::Piece->strptime($t->{server_cert_verified_time_na}, "%FT%TZ")->epoch();
+
+# 	#print STDERR "notBefore = $notBeforeEpoch\n";
+# 	#print STDERR "notAfter = $notAfterEpoch\n";
+# 	my $currentTime = time();
+# 	if ($notBeforeEpoch > $currentTime) {
+# 		push(@failures, "certificate not yet valid (validity starts $t->{server_cert_verified_time_nb})");
+# 	}
+# 	elsif ($notAfterEpoch < $currentTime) {
+# 		push(@failures, "certificate is expired (expired $t->{server_cert_verified_time_na})");
+# 	}
+# 	else {
+# 		$t->{server_cert_verified_time} = 1;
+# 	}
+
+
+
+# 	$t->{server_cert_host_target} = $G::tls_verify_target || $G::link{server};
+# 	if (!$t->{server_cert_host_target}) {
+# 		push(@failures, "no host available for host verification");
+# 	}
+# 	else {
+# 		# if ($t->{server_cert_host_target} =~ /(:|^\d+\.\d+\.\d+\.\d+$)/) {
+# 		# 	# verify as an IP
+# 		# 	if (Net::SSLeay::X509_check_ip_asc($x509, $t->{server_cert_host_target}, 0) == 1) {
+# 		# 		$t->{server_cert_verified_host} = 1;
+# 		# 	}
+# 		# }
+# 		# else {
+# 		# 	# verify as a hostname
+# 		# 	if (Net::SSLeay::X509_check_host($x509, $t->{server_cert_host_target}, 0) == 1) {
+# 		# 		$t->{server_cert_verified_host} = 1;
+# 		# 	}
+# 		# }
+
+# 		if (!$t->{server_cert_verified_host}) {
+# 			push(@failures, 'server certificate did not match target host ' . $t->{server_cert_host_target});
+# 		}
+# 	}
+
+# 	$t->{verify_failure_message} = join(', ', @failures);
+
+# 	if ($G::tls_verify_ca && !$t->{server_cert_verified_ca}) {
+# 		$t->{server_cert_verification_status} = 0;
+# 		return 0;
+# 	}
+# 	elsif ($G::tls_verify_host && !$t->{server_cert_verified_host}) {
+# 		$t->{server_cert_verification_status} = 0;
+# 		return 0;
+# 	}
+# 	elsif ($G::tls_verify_time && !$t->{server_cert_verified_time}) {
+# 		$t->{server_cert_verification_status} = 0;
+# 		return 0;
+# 	}
+
+# 	$t->{server_cert_verification_status} = 1;
+# 	return 1;
+# }
+
+# confusingly, different versions of openssl or Net::SSLeay behave differently on calling this callback
+# 1) call once for every cert in chain, starting with the root-most certificate (this is as documented)
+#    - FreeBSD 12.1,      Perl-5.32.0, Net::SSLeay-1.88, OpenSSL-1.1.1g-freebsd
+#    - Debian Linux 10.6, Perl-5.28.1, Net::SSLeay-1.85, OpenSSL-1.1.1d
+#    - Ubuntu 18.04.4,    Perl-5.26.1, Net::SSLeay-1.84, OpenSSL-1.1.1
+#    - macOS 10.15.7,     Perl-5.18.4, Net::SSLeay-1.85, LibreSSL-2.8.3 -- all system defaults
+# 2) call once, only for the end-most cert (what we would think of as the server cert)
+#    - macOS 10.15.7,     Perl-5.32.0, Net::SSLeay-1.88, OpenSSL-1.1.1h -- all via homebrew
+#
+# Given this variability, here's how I'm going to handle it
+# - we will print a TLS info line for every certificate we get called for
+# - we will no longer allow the TLS negotiation to fail ever due to verification. Instead, if the user requires
+#   verification, we will just terminate the connection if the certs didn't verify (this will actually be better user experience anyway)
+# - any signing error will be a verification error
+# - any date error will be a verification error
+# - any name/ip error will always be reported, but will only cause a verification error on the last certificate processed
 sub tls_verify_callback_NEW {
 	my $preverify_ok = shift;
 	my $x509_ctx     = shift;
-	my @failures     = ();
+	# my @failures     = ();
 	my $t            = $G::link{tls};
 
+	# we will store information about each certificate we handle here
+	my $certInfo = {
+		verified_ca   => 0,
+		verified_time => 0,
+		verified_host => 0,
+		dn            => '',
+	};
+	push(@{$t->{server_cert_stack}}, $certInfo);
+
 	my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
-	# my $x509_stack = Net::SSLeay::
-	print STDERR "Perl version: ", $^V, "\n";
-	print STDERR "Net::SSLeay version: ", $Net::SSLeay::VERSION, "\n";
-	print STDERR "underlying openssl version: ", Net::SSLeay::SSLeay_version(), "\n";
-	print STDERR "pre-verify = $preverify_ok, current cert: ", Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509)), "\n";
+	$certInfo->{dn} = Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509));
+	#print STDERR "pre-verify = $preverify_ok, current cert: ", Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509)), "\n";
 
 
 	# this callback is called twice sometimes and I can't figure out why.  The first seems to have the values I want
 	# to see, so if we're called multiple times, use the status from the first call
-	if (defined($t->{server_cert_verification_status})) {
-		return $t->{server_cert_verification_status};
-	}
+	# if (defined($t->{server_cert_verification_status})) {
+	# 	return $t->{server_cert_verification_status};
+	# }
 
 	# we don't have to do the ca verification, that's handled before we get here
 	if ($preverify_ok) {
-		$t->{server_cert_verified_ca} = 1;
+		$certInfo->{verified_ca} = 1;
 	}
-	else {
-		push(@failures, "server certificate not signed by known CA");
-	}
+	# if (!$preverify_ok) {
+	# 	push(@failures, "server certificate not signed by known CA");
+	# }
+	# if ($preverify_ok) {
+	# 	$t->{server_cert_verified_ca} = 1;
+	# }
+	# else {
+	# 	push(@failures, "server certificate not signed by known CA");
+	# }
 
 	# my $x509 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
-	$t->{server_cert_verified_time_nb} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notBefore($x509));
-	$t->{server_cert_verified_time_na} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notAfter($x509));
-	print STDERR "notBefore = ", $t->{server_cert_verified_time_nb}, "\n";
-	# my $notAfter = Net::SSLeay::X509_get_notAfter($x509);
-	print STDERR "notAfter = ", $t->{server_cert_verified_time_na}, "\n";
+	$certInfo->{verified_time_nb} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notBefore($x509));
+	$certInfo->{verified_time_na} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notAfter($x509));
+	# $t->{server_cert_verified_time_nb} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notBefore($x509));
+	# $t->{server_cert_verified_time_na} = Net::SSLeay::P_ASN1_TIME_get_isotime(Net::SSLeay::X509_get_notAfter($x509));
+	# print STDERR "notBefore = ", $t->{server_cert_verified_time_nb}, "\n";
+	# # my $notAfter = Net::SSLeay::X509_get_notAfter($x509);
+	# print STDERR "notAfter = ", $t->{server_cert_verified_time_na}, "\n";
 
 	# WCSXXXFIXME - handle the module not being available, handle the date strings not parsing
 	use Time::Piece qw();
-	my $notBeforeEpoch = Time::Piece->strptime($t->{server_cert_verified_time_nb}, "%FT%TZ")->epoch();
-	my $notAfterEpoch = Time::Piece->strptime($t->{server_cert_verified_time_na}, "%FT%TZ")->epoch();
+	my $notBeforeEpoch = Time::Piece->strptime($certInfo->{verified_time_nb}, "%FT%TZ")->epoch();
+	my $notAfterEpoch = Time::Piece->strptime($certInfo->{verified_time_na}, "%FT%TZ")->epoch();
+	# my $notBeforeEpoch = 0; #Time::Piece->strptime($t->{server_cert_verified_time_nb}, "%FT%TZ")->epoch();
+	# my $notAfterEpoch = 0; #Time::Piece->strptime($t->{server_cert_verified_time_na}, "%FT%TZ")->epoch();
 
 	#print STDERR "notBefore = $notBeforeEpoch\n";
 	#print STDERR "notAfter = $notAfterEpoch\n";
 	my $currentTime = time();
-	if ($notBeforeEpoch > $currentTime) {
-		push(@failures, "certificate not yet valid (validity starts $t->{server_cert_verified_time_nb})");
+	# if ($notBeforeEpoch > $currentTime) {
+	# 	push(@failures, "certificate not yet valid (validity starts $t->{server_cert_verified_time_nb})");
+	# }
+	# elsif ($notAfterEpoch < $currentTime) {
+	# 	push(@failures, "certificate is expired (expired $t->{server_cert_verified_time_na})");
+	# }
+	# else {
+	# 	$t->{server_cert_verified_time} = 1;
+	# }
+	if ($notBeforeEpoch <= $currentTime && $notAfterEpoch >= $currentTime) {
+		$certInfo->{verified_time} = 1;
 	}
-	elsif ($notAfterEpoch < $currentTime) {
-		push(@failures, "certificate is expired (expired $t->{server_cert_verified_time_na})");
-	}
-	else {
-		$t->{server_cert_verified_time} = 1;
-	}
-
 
 
 	$t->{server_cert_host_target} = $G::tls_verify_target || $G::link{server};
-	if (!$t->{server_cert_host_target}) {
-		push(@failures, "no host available for host verification");
-	}
-	else {
+
+	# if (!$t->{server_cert_host_target}) {
+	# 	# push(@failures, "no host available for host verification");
+	# 	$certInfo->{verified_host} = 0;
+	# }
+	# else {
 		if ($t->{server_cert_host_target} =~ /(:|^\d+\.\d+\.\d+\.\d+$)/) {
 			# verify as an IP
 			if (Net::SSLeay::X509_check_ip_asc($x509, $t->{server_cert_host_target}, 0) == 1) {
-				$t->{server_cert_verified_host} = 1;
+				$certInfo->{verified_host} = 1;
+				# $t->{server_cert_verified_host} = 1;
 			}
 		}
-		else {
+		elsif (length($t->{server_cert_host_target})) {
 			# verify as a hostname
 			if (Net::SSLeay::X509_check_host($x509, $t->{server_cert_host_target}, 0) == 1) {
-				$t->{server_cert_verified_host} = 1;
+				$certInfo->{verified_time} = 1;
+				# $t->{server_cert_verified_host} = 1;
 			}
 		}
 
-		if (!$t->{server_cert_verified_host}) {
-			push(@failures, 'server certificate did not match target host ' . $t->{server_cert_host_target});
-		}
-	}
+		# if (!$t->{server_cert_verified_host}) {
+		# 	push(@failures, 'server certificate did not match target host ' . $t->{server_cert_host_target});
+		# }
+	# }
 
-	$t->{verify_failure_message} = join(', ', @failures);
+	# $t->{verify_failure_message} = join(', ', @failures);
 
-	if ($G::tls_verify_ca && !$t->{server_cert_verified_ca}) {
-		$t->{server_cert_verification_status} = 0;
-		return 0;
-	}
-	elsif ($G::tls_verify_host && !$t->{server_cert_verified_host}) {
-		$t->{server_cert_verification_status} = 0;
-		return 0;
-	}
-	elsif ($G::tls_verify_time && !$t->{server_cert_verified_time}) {
-		$t->{server_cert_verification_status} = 0;
-		return 0;
-	}
+	# if ($G::tls_verify_ca && !$t->{server_cert_verified_ca}) {
+	# 	$t->{server_cert_verification_status} = 0;
+	# 	return 0;
+	# }
+	# elsif ($G::tls_verify_host && !$t->{server_cert_verified_host}) {
+	# 	$t->{server_cert_verification_status} = 0;
+	# 	return 0;
+	# }
+	# elsif ($G::tls_verify_time && !$t->{server_cert_verified_time}) {
+	# 	$t->{server_cert_verification_status} = 0;
+	# 	return 0;
+	# }
 
-	$t->{server_cert_verification_status} = 1;
+	# $t->{server_cert_verification_status} = 1;
+
+	# always return 1 out of here, we'll handle terminating the connection for an invalid cert later
 	return 1;
 }
 
@@ -579,9 +763,9 @@ sub start_tls {
 	}
 
 	# we explicitly turn off time checking.  This allows us to conditionally check for it later.
-	my $vpm = Net::SSLeay::CTX_get0_param($t{con});
-	Net::SSLeay::X509_VERIFY_PARAM_set_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
-	Net::SSLeay::CTX_set1_param($t{con}, $vpm);
+	# my $vpm = Net::SSLeay::CTX_get0_param($t{con});
+	# Net::SSLeay::X509_VERIFY_PARAM_set_flags($vpm, &Net::SSLeay::X509_V_FLAG_NO_CHECK_TIME);
+	# Net::SSLeay::CTX_set1_param($t{con}, $vpm);
 
 	my $ctx_options = &Net::SSLeay::OP_ALL;
 	if (scalar(@G::tls_protocols)) {
@@ -603,14 +787,17 @@ sub start_tls {
 	}
 	Net::SSLeay::CTX_set_options($t{con}, $ctx_options);
 
-	$t{verify_failure_message}          = '';
-	$t{server_cert_verified_ca}         = 0;
-	$t{server_cert_verified_host}       = 0;
-	$t{server_cert_verified_time}       = 0;
-	$t{server_cert_verified_time_nb}    = '';
-	$t{server_cert_verified_time_na}    = '';
+	# $t{verify_failure_message}          = '';
+	# $t{server_cert_verified_ca}         = 0;
+	# $t{server_cert_verified_host}       = 0;
+	# $t{server_cert_verified_time}       = 0;
+	# $t{server_cert_verified_time_nb}    = '';
+	# $t{server_cert_verified_time_na}    = '';
 	$t{server_cert_host_target}         = '';
-	$t{server_cert_verification_status} = undef;
+	# $t{server_cert_verification_status} = undef;
+
+
+	$t{server_cert_stack}               = [];
 	#Net::SSLeay::CTX_set_verify($t{con}, &Net::SSLeay::VERIFY_PEER, \&tls_verify_callback);
 	Net::SSLeay::CTX_set_verify($t{con}, &Net::SSLeay::VERIFY_NONE, \&tls_verify_callback_NEW);
 
@@ -686,9 +873,9 @@ sub start_tls {
 	$t{active} = Net::SSLeay::connect($t{ssl}) == 1 ? 1 : 0;
 	if (!$t{active}) {
 		$t{res} = "connect(): " . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
-		if ($t{verify_failure_message}) {
-			$t{res} .= ' (' . $t{verify_failure_message} . ')';
-		}
+		# if ($t{verify_failure_message}) {
+		# 	$t{res} .= ' (' . $t{verify_failure_message} . ')';
+		# }
 		return(0);
 	}
 
@@ -864,7 +1051,9 @@ sub do_smtp_tls {
 		ptrans(12, "TLS startup failed ($G::link{tls}{res})");
 		return(2);
 	}
-	tls_post_start();
+	if (!tls_post_start()) {
+		return(2);
+	}
 
 	return(0);
 }
