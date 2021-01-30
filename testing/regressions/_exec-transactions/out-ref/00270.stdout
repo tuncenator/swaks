@@ -17,3 +17,12 @@
 <-  250 HELP
  -> STARTTLS
 <-  220 TLS go ahead
+=== TLS no local certificate set
+=== TLS local certificate not requested and not sent
+=== TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development/CN=Swaks Root CA/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[0] passed CA verification
+=== TLS peer cert[0] passed time verification (valid between 2020-12-13T15:28:17Z and 2030-12-11T15:28:17Z)
+=== TLS peer cert[1] DN="/C=US/ST=Indiana/O=Swaks Development/CN=node.example.com/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[1] passed CA verification
+=== TLS peer cert[1] passed time verification (valid between 2020-12-13T16:31:10Z and 2030-10-22T16:31:10Z)
+=== TLS peer cert[1] failed host verification (using host badhost.example.com to verify)

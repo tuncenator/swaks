@@ -17,9 +17,11 @@
 <-  250 HELP
  -> STARTTLS
 <-  220 TLS go ahead
-=== TLS started with cipher VERSION:CIPHER:BITS
-=== TLS client certificate not requested and not sent
 === TLS no local certificate set
-=== TLS peer DN="/C=US/ST=Indiana/O=Swaks Development/CN=node.example.com/emailAddress=proj-swaks@jetmore.net"
-=== TLS peer certificate failed CA verification, failed host verification (no host string available to verify)
+=== TLS local certificate not requested and not sent
+=== TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development/CN=node.example.com/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[0] failed CA verification
+=== TLS peer cert[0] passed time verification (valid between 2020-12-13T16:31:10Z and 2030-10-22T16:31:10Z)
+=== TLS peer cert[0] failed host verification (no host string available to verify)
+=== TLS started with cipher VERSION:CIPHER:BITS
 === Dropping connection

@@ -17,11 +17,13 @@
 <-  250 HELP
  -> STARTTLS
 <-  220 TLS go ahead
-=== TLS started with cipher VERSION:CIPHER:BITS
-=== TLS client certificate not requested and not sent
 === TLS no local certificate set
-=== TLS peer DN="/C=US/ST=Indiana/O=Swaks Development (::1, +SAN)/emailAddress=proj-swaks@jetmore.net"
-=== TLS peer certificate failed CA verification, passed host verification (using host ::1 to verify)
+=== TLS local certificate not requested and not sent
+=== TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development (::1, +SAN)/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[0] failed CA verification
+=== TLS peer cert[0] passed time verification (valid between 2021-01-20T22:42:33Z and 2030-11-29T22:42:33Z)
+=== TLS peer cert[0] passed host verification (using host ::1 to verify)
+=== TLS started with cipher VERSION:CIPHER:BITS
  ~> QUIT
 <~  221 SERVER closing connection
 === Connection closed with remote host.
