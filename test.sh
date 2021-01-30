@@ -6,6 +6,8 @@ P=perl
 
 hostname
 
+util/get-tls-info.pl
+
 echo "#################### unsigned, valid host name (expect: fail, pass, pass)"
 $P ./swaks --to user@host1.nodns.test.swaks.net --from recip@host1.nodns.test.swaks.net --helo hserver \
   --tls --quit tls --tls-verify-ca --tls-verify-target unsigned.example.com --tls-ca-path testing/certs/ca.pem \
