@@ -238,6 +238,9 @@ sub sendmail {
 		} elsif ($result == 2) {
 			ptrans(12, "STARTTLS attempted but failed");
 			exit(29) if ($G::tls_optional != 1);
+		} elsif ($result == 3) {
+			ptrans(12, "STARTTLS attempted but required verification failed");
+			exit(29) if ($G::tls_optional != 1);
 		}
 	} elsif ($G::tls_optional == 2 && $ehlo->{STARTTLS}) {
 		ptrans(12, "TLS requested, advertised, and locally unavailable.  Exiting");
@@ -419,7 +422,7 @@ sub tls_post_start {
 		}
 	}
 
-	if ($overallSuccess) {
+	if (!$overallSuccess) {
 		ptrans(12, "TLS one or more required certificate verifications failed, will not proceed");
 		return(0);
 	}
@@ -619,7 +622,7 @@ sub tls_post_start {
 #    - Debian Linux 10.6, Perl-5.28.1, Net::SSLeay-1.85, OpenSSL-1.1.1d
 #    - Ubuntu 18.04.4,    Perl-5.26.1, Net::SSLeay-1.84, OpenSSL-1.1.1
 #    - macOS 10.15.7,     Perl-5.18.4, Net::SSLeay-1.85, LibreSSL-2.8.3 -- all system defaults
-# 2) call once, only for the end-most cert (what we would think of as the server cert)
+# 2) call once for every cert in the chain EXCEPT the root-most cert (smtp.pobox.com has intermediate cert. intermediate gets verified, but not root)
 #    - macOS 10.15.7,     Perl-5.32.0, Net::SSLeay-1.88, OpenSSL-1.1.1h -- all via homebrew
 #
 # Given this variability, here's how I'm going to handle it
@@ -647,8 +650,7 @@ sub tls_verify_callback_NEW {
 	my $x509                 = Net::SSLeay::X509_STORE_CTX_get_current_cert($x509_ctx);
 	$certInfo->{dn}          = Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509));
 	$certInfo->{fingerprint} = Net::SSLeay::X509_get_fingerprint($x509, 'sha256');
-print STDERR "in callback with DN=$certInfo->{dn}, $certInfo->{fingerprint}\n";
-	#print STDERR "pre-verify = $preverify_ok, current cert: ", Net::SSLeay::X509_NAME_oneline(Net::SSLeay::X509_get_subject_name($x509)), "\n";
+	#print STDERR "in callback with DN=$certInfo->{dn}, $certInfo->{fingerprint}\n";
 
 	# for some reason, in every environment, we get called twice on the last certificate (maybe that would have been a way to tell
 	# we're on the last cert?  Oh well).  If we've seen this fingerprint before, don't attempt to re-verify it.
@@ -729,9 +731,13 @@ print STDERR "in callback with DN=$certInfo->{dn}, $certInfo->{fingerprint}\n";
 		elsif (length($t->{server_cert_host_target})) {
 			# verify as a hostname
 			if (Net::SSLeay::X509_check_host($x509, $t->{server_cert_host_target}, 0) == 1) {
-				$certInfo->{verified_time} = 1;
+#print STDERR "host verification ($t->{server_cert_host_target}) succeeded\n";
+				$certInfo->{verified_host} = 1;
 				# $t->{server_cert_verified_host} = 1;
 			}
+# else {
+# 	print STDERR "host verification ($t->{server_cert_host_target}) failed\n";
+# }
 		}
 
 		# if (!$t->{server_cert_verified_host}) {
@@ -1053,6 +1059,7 @@ sub do_smtp_tls {
 	# 0 = tls succeeded
 	# 1 = tls not advertised
 	# 2 = tls advertised and attempted negotiations failed
+	# 3 = tls advertised, attempted, succeeded, but verification was required and failed
 	if (!$e->{STARTTLS}) {
 		return(1);
 	} elsif (!do_smtp_gen("STARTTLS", '220')) {
@@ -1062,7 +1069,7 @@ sub do_smtp_tls {
 		return(2);
 	}
 	if (!tls_post_start()) {
-		return(2);
+		return(3);
 	}
 
 	return(0);
