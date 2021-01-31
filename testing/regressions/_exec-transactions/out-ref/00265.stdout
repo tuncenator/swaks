@@ -1,5 +1,5 @@
-=== Trying pipe to %TEST_SERVER% --silent --domain pipe     --cert %CERTDIR%/node.example.com.crt --key %CERTDIR%/node.example.com.key     part-0000-connect-standard.txt     part-0101-ehlo-all.txt     part-0200-starttls-basic.txt     part-3000-shutdown-accept.txt   ...
-=== Connected to %TEST_SERVER% --silent --domain pipe     --cert %CERTDIR%/node.example.com.crt --key %CERTDIR%/node.example.com.key     part-0000-connect-standard.txt     part-0101-ehlo-all.txt     part-0200-starttls-basic.txt     part-3000-shutdown-accept.txt   .
+=== Trying pipe to %TEST_SERVER% --silent --domain pipe     --cert %CERTDIR%/expired-unsigned.example.com.crt --key %CERTDIR%/expired-unsigned.example.com.key     part-0000-connect-standard.txt     part-0101-ehlo-all.txt     part-0200-starttls-basic.txt     part-3000-shutdown-accept.txt   ...
+=== Connected to %TEST_SERVER% --silent --domain pipe     --cert %CERTDIR%/expired-unsigned.example.com.crt --key %CERTDIR%/expired-unsigned.example.com.key     part-0000-connect-standard.txt     part-0101-ehlo-all.txt     part-0200-starttls-basic.txt     part-3000-shutdown-accept.txt   .
 <-  220 SERVER ESMTP ready
  -> EHLO hserver
 <-  250-SERVER Hello Server [1.1.1.1]
@@ -19,10 +19,10 @@
 <-  220 TLS go ahead
 === TLS no local certificate set
 === TLS local certificate not requested and not sent
-=== TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development/CN=node.example.com/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development (expired-unsigned.example.com, +SAN)/CN=expired-unsigned.example.com/emailAddress=proj-swaks@jetmore.net"
 === TLS peer cert[0] failed CA verification
-=== TLS peer cert[0] passed time verification (valid between 2020-12-13T16:31:10Z and 2030-10-22T16:31:10Z)
-=== TLS peer cert[0] passed host verification (using host node.example.com to verify)
+=== TLS peer cert[0] failed time verification (valid between 2021-01-20T21:48:27Z and 2021-01-21T21:48:27Z)
+=== TLS peer cert[0] passed host verification (using host expired-unsigned.example.com to verify)
 === TLS started with cipher VERSION:CIPHER:BITS
  ~> QUIT
 <~  221 SERVER closing connection
