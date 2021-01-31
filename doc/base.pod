@@ -515,13 +515,17 @@ The argument to this option is passed to the underlying OpenSSL library to set t
 
 =item --tls-verify
 
-Tell Swaks to attempt to verify the server's certificate.  This option is identical to specifying both the C<--tls-verify-ca> and C<--tls-verify-host> options.  See those options for detailed descriptions of how to fine-tune each type of verification.
+Tell Swaks to attempt to verify the server's certificate.  This option is identical to specifying all of the C<--tls-verify-ca>, C<--tls-verify-time>, and C<--tls-verify-host> options.  See those options for detailed descriptions of how to fine-tune each type of verification.
 
-By default, TLS verification is not required.  If TLS verification is required by C<--tls-verify>, C<--tls-verify-ca>, or C<--tls-verify-host> and the requested type of verification fails, TLS negotiation will not succeed. (Arg-None)
+By default, TLS verification is not required.  If TLS verification is required by C<--tls-verify>, C<--tls-verify-ca>, C<--tls-verify-time>, or C<--tls-verify-host> and the requested type of verification fails, TLS negotiation will not succeed. (Arg-None)
 
 =item --tls-verify-ca
 
 Require that the server's certificate be signed by a known certificate authority.  By default the list of known CAs will be whatever is available via the client Swaks is running on.  To provide a custom CA, see C<--tls-ca-path>. (Arg-None)
+
+=item --tls-verify-time
+
+Require that the server's certificate not be expired. (Arg-None)
 
 =item --tls-verify-host
 

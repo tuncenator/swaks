@@ -1006,3 +1006,7 @@
 * 20210123 Adding --cc and --bcc options.
 * 20210123 Add PROXY as a valid --quit-after, --drop-after, and
            --drop-after-send argument.
+* 20210131 Reworking TLS verification system to expose maximum information
+           about each cert in chain.
+* 20210131 Break expired out from "ca" as a reason a cert could fail to
+           validate and add --tls-verify-time option to control it.

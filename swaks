@@ -2300,6 +2300,10 @@ sub get_option_struct {
 		{ opts    => ['tls-verify-ca'],                                    suffix => '',
 		  cfgs    => OP_ARG_NONE,
 		  okey    => 'tls_verify_ca',                                      type   => 'scalar', },
+		# require verification of server certificate valid time (make sure not expired)
+		{ opts    => ['tls-verify-time'],                                  suffix => '',
+		  cfgs    => OP_ARG_NONE,
+		  okey    => 'tls_verify_time',                                    type   => 'scalar', },
 		# require verification of server certificate against the host we're connection to
 		{ opts    => ['tls-verify-host'],                                  suffix => '',
 		  cfgs    => OP_ARG_NONE,
@@ -3666,6 +3670,7 @@ sub process_args {
 		}
 		$G::tls_verify_ca     = get_arg('tls_verify_ca', $o);
 		$G::tls_verify_host   = get_arg('tls_verify_host', $o);
+		$G::tls_verify_time   = get_arg('tls_verify_time', $o);
 		$G::tls_verify_target = get_arg('tls_verify_target', $o);
 		$G::tls_sni_hostname  = get_arg('tls_sni_hostname', $o);
 		$G::tls_cipher        = get_arg('tls_cipher', $o);
@@ -4193,10 +4198,11 @@ sub get_running_state {
 				else                          { push(@{$parts[-1]}, '  tls                 = starttls (required)');        }
 			}
 			elsif ($G::tls_on_connect)        { push(@{$parts[-1]}, '  tls                 = starttls on connect (required)'); }
-			my $verifyString  = 'CA'    if ($G::tls_verify_ca);
-			$verifyString    .= ', '    if ($G::tls_verify_ca && $G::tls_verify_host);
-			$verifyString    .= 'HOST'  if ($G::tls_verify_host);
-			$verifyString     = 'FALSE' if (!$verifyString);
+			my @verifyOptions             = ();
+			push(@verifyOptions, 'CA')    if ($G::tls_verify_ca);
+			push(@verifyOptions, 'TIME')  if ($G::tls_verify_time);
+			push(@verifyOptions, 'HOST')  if ($G::tls_verify_host);
+			push(@verifyOptions, 'FALSE') if (!scalar(@verifyOptions));
 			push(@{$parts[-1]},
 				"  peer cert           = $G::tls_get_peer_cert",
 				"  local cert          = $G::tls_cert",
@@ -4204,7 +4210,7 @@ sub get_running_state {
 				"  local cipher list   = $G::tls_cipher",
 				"  ca path             = $G::tls_ca_path",
 				"  sni string          = $G::tls_sni_hostname",
-				'  verify server cert  = ' . $verifyString,
+				'  verify server cert  = ' . join(', ', @verifyOptions),
 				'  verify target host  = ' . $G::tls_verify_target,
 				'  available protocols = ' . join(', ', @G::tls_supported_protocols),
 				'  requested protocols = ' . join(', ', @G::tls_protocols),
