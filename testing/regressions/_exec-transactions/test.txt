@@ -45,6 +45,7 @@
    24 TLS client certificate info line -- client certs NOT present, server DOES     request them
    25 TLS client certificate info line -- client certs ARE present, server DOES     request them
    26 TLS client certificate info line -- client certs ARE present, server does NOT request them
+   34 --tls-verify-time FAIL (good ca, good time (bad intermediate time), good host)
    35 TLS verification info line: --fail ca (signed cert, expired ca), ++pass time
    36 TLS verification info line: ++pass ca (signed cert),             --fail time,   --fail host (pipe - no target host)
    37 TLS verification info line: ++pass ca (signed cert),             ++pass time,   --fail host (pipe - no target host)
