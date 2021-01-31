@@ -5,6 +5,14 @@
 
 // macos, homebrew
 
+// debian
+// gcc -o cert-callback-poc-system cert-callback-poc.c -lssl -lcrypto
+// ./cert-callback-poc-system smtp.pobox.com 465
+// using library version: OpenSSL 1.1.1d  10 Sep 2019
+// in verify callback with dn = /C=US/O=DigiCert Inc/CN=DigiCert SHA2 Secure Server CA
+// in verify callback with dn = /C=AU/ST=Victoria/L=Melbourne/O=FastMail Pty Ltd/CN=*.pobox.com
+
+
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
@@ -74,25 +82,25 @@ SSL_CTX* InitCTX(void)
     return ctx;
 }
 
-void ShowCerts(SSL* ssl)
-{
-    X509 *cert;
-    char *line;
-    cert = SSL_get_peer_certificate(ssl); /* get the server's certificate */
-    if ( cert != NULL )
-    {
-        printf("Server certificates:\n");
-        line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
-        printf("Subject: %s\n", line);
-        free(line);       /* free the malloc'ed string */
-        line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
-        printf("Issuer: %s\n", line);
-        free(line);       /* free the malloc'ed string */
-        X509_free(cert);     /* free the malloc'ed certificate copy */
-    }
-    else
-        printf("Info: No client certificates configured.\n");
-}
+// void ShowCerts(SSL* ssl)
+// {
+//     X509 *cert;
+//     char *line;
+//     cert = SSL_get_peer_certificate(ssl); /* get the server's certificate */
+//     if ( cert != NULL )
+//     {
+//         printf("Server certificates:\n");
+//         line = X509_NAME_oneline(X509_get_subject_name(cert), 0, 0);
+//         printf("Subject: %s\n", line);
+//         free(line);       /* free the malloc'ed string */
+//         line = X509_NAME_oneline(X509_get_issuer_name(cert), 0, 0);
+//         printf("Issuer: %s\n", line);
+//         free(line);       /* free the malloc'ed string */
+//         X509_free(cert);     /* free the malloc'ed certificate copy */
+//     }
+//     else
+//         printf("Info: No client certificates configured.\n");
+// }
 
 int main(int count, char *strings[])
 {
@@ -113,7 +121,7 @@ int main(int count, char *strings[])
     portnum=strings[2];
     ctx = InitCTX();
 
-    printf("using library version: %s", SSLeay_version(SSLEAY_VERSION));
+    printf("using library version: %s\n", SSLeay_version(SSLEAY_VERSION));
 
     server = OpenConnection(hostname, atoi(portnum));
     ssl = SSL_new(ctx);      /* create new SSL connection state */
@@ -122,7 +130,7 @@ int main(int count, char *strings[])
         ERR_print_errors_fp(stderr);
     else
     {
-        printf("\n\nConnected with %s encryption\n", SSL_get_cipher(ssl));
+        printf("\nConnected with %s encryption\n", SSL_get_cipher(ssl));
         // ShowCerts(ssl);        /* get any certs */
         SSL_free(ssl);        /* release connection state */
     }
