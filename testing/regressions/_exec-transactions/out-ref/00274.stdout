@@ -19,7 +19,10 @@
 <-  220 TLS go ahead
 === TLS no local certificate set
 === TLS local certificate not requested and not sent
-=== TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development (expired-signed.example.com, +SAN)/CN=expired-signed.example.com/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development/CN=Swaks Root CA/emailAddress=proj-swaks@jetmore.net"
 === TLS peer cert[0] passed CA verification
-=== TLS peer cert[0] failed time verification (valid between 2021-01-20T21:51:46Z and 2021-01-21T21:51:46Z)
-=== TLS peer cert[0] failed host verification (no host string available to verify)
+=== TLS peer cert[0] passed time verification (valid between 2020-12-13T15:28:17Z and 2030-12-11T15:28:17Z)
+=== TLS peer cert[1] DN="/C=US/ST=Indiana/O=Swaks Development (expired-signed.example.com, +SAN)/CN=expired-signed.example.com/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[1] passed CA verification
+=== TLS peer cert[1] failed time verification (valid between 2021-01-20T21:51:46Z and 2021-01-21T21:51:46Z)
+=== TLS peer cert[1] failed host verification (no host string available to verify)

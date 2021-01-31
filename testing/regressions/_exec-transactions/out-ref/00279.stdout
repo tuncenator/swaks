@@ -19,10 +19,13 @@
 <-  220 TLS go ahead
 === TLS no local certificate set
 === TLS local certificate not requested and not sent
-=== TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development/CN=signed.example.com/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development/CN=Swaks Root CA/emailAddress=proj-swaks@jetmore.net"
 === TLS peer cert[0] passed CA verification
-=== TLS peer cert[0] passed time verification (valid between 2020-12-13T16:31:20Z and 2030-10-22T16:31:20Z)
-=== TLS peer cert[0] passed host verification (using host signed.example.com to verify)
+=== TLS peer cert[0] passed time verification (valid between 2020-12-13T15:28:17Z and 2030-12-11T15:28:17Z)
+=== TLS peer cert[1] DN="/C=US/ST=Indiana/O=Swaks Development/CN=signed.example.com/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[1] passed CA verification
+=== TLS peer cert[1] passed time verification (valid between 2020-12-13T16:31:20Z and 2030-10-22T16:31:20Z)
+=== TLS peer cert[1] passed host verification (using host signed.example.com to verify)
 === TLS started with cipher VERSION:CIPHER:BITS
  ~> QUIT
 <~  221 SERVER closing connection

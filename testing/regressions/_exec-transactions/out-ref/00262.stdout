@@ -1,5 +1,5 @@
-=== Trying pipe to %TEST_SERVER% --silent --domain pipe     --cert %CERTDIR%/node.example.com.crt --key %CERTDIR%/node.example.com.key     part-0000-connect-standard.txt     part-0101-ehlo-all.txt     part-0200-starttls-basic.txt     part-3000-shutdown-accept.txt   ...
-=== Connected to %TEST_SERVER% --silent --domain pipe     --cert %CERTDIR%/node.example.com.crt --key %CERTDIR%/node.example.com.key     part-0000-connect-standard.txt     part-0101-ehlo-all.txt     part-0200-starttls-basic.txt     part-3000-shutdown-accept.txt   .
+=== Trying pipe to %TEST_SERVER% --silent --domain pipe     --cert %CERTDIR%/expired-signed.example.com.crt --key %CERTDIR%/expired-signed.example.com.key     part-0000-connect-standard.txt     part-0101-ehlo-all.txt     part-0200-starttls-basic.txt     part-3000-shutdown-accept.txt   ...
+=== Connected to %TEST_SERVER% --silent --domain pipe     --cert %CERTDIR%/expired-signed.example.com.crt --key %CERTDIR%/expired-signed.example.com.key     part-0000-connect-standard.txt     part-0101-ehlo-all.txt     part-0200-starttls-basic.txt     part-3000-shutdown-accept.txt   .
 <-  220 SERVER ESMTP ready
  -> EHLO hserver
 <-  250-SERVER Hello Server [1.1.1.1]
@@ -22,9 +22,9 @@
 === TLS peer cert[0] DN="/C=US/ST=Indiana/O=Swaks Development/CN=Swaks Root CA/emailAddress=proj-swaks@jetmore.net"
 === TLS peer cert[0] passed CA verification
 === TLS peer cert[0] passed time verification (valid between 2020-12-13T15:28:17Z and 2030-12-11T15:28:17Z)
-=== TLS peer cert[1] DN="/C=US/ST=Indiana/O=Swaks Development/CN=node.example.com/emailAddress=proj-swaks@jetmore.net"
+=== TLS peer cert[1] DN="/C=US/ST=Indiana/O=Swaks Development (expired-signed.example.com, +SAN)/CN=expired-signed.example.com/emailAddress=proj-swaks@jetmore.net"
 === TLS peer cert[1] passed CA verification
-=== TLS peer cert[1] passed time verification (valid between 2020-12-13T16:31:10Z and 2030-10-22T16:31:10Z)
+=== TLS peer cert[1] failed time verification (valid between 2021-01-20T21:51:46Z and 2021-01-21T21:51:46Z)
 === TLS peer cert[1] failed host verification (using host badhost.example.com to verify)
 === TLS started with cipher VERSION:CIPHER:BITS
  ~> QUIT
