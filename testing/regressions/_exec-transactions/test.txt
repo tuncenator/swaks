@@ -85,10 +85,10 @@
    73 --tls-verify      FAIL (bad  ca, bad  time, good host)
    74 --tls-verify      FAIL (good ca, bad  time, bad  host)
    75 --tls-verify      FAIL (good ca, bad  time, good host)
-   #76 --tls-verify-time FAIL (bad  ca, bad  time, bad  host) (waiting for --tls-verify-time implementation)
-   #77 --tls-verify-time FAIL (good ca, bad  time, good host)
-   #78 --tls-verify-time PASS (bad  ca, good time, bad  host)
-   #79 --tls-verify-time PASS (good ca, good time, good host)
+   76 --tls-verify-time FAIL (bad  ca, bad  time, bad  host)
+   77 --tls-verify-time FAIL (good ca, bad  time, good host)
+   78 --tls-verify-time PASS (bad  ca, good time, bad  host)
+   79 --tls-verify-time PASS (good ca, good time, good host)
 
 
 00300 - xclient (COMPLETE)

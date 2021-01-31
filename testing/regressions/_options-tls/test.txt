@@ -310,6 +310,22 @@
   1030 tls-verify-target command line, no arg (-option)
   1031 tls-verify-target, command line, valid arg (-option=)
   1032 tls-verify-target, command line, valid arg (--option=)
+01050 --tls-verify-time
+  1050 tls-verify-time, command line, no arg
+  # 1051 tls-verify-time, command line, valid arg
+  1052 tls-verify-time, command line, invalid arg
+  1053 tls-verify-time, command line, no-option
+  1060 tls-verify-time, config, no arg
+  # 1061 tls-verify-time, config, valid arg
+  1062 tls-verify-time, config, invalid arg
+  1063 tls-verify-time, config, no-option
+  1070 tls-verify-time, env var, no arg
+  # 1071 tls-verify-time, env var, valid arg
+  1072 tls-verify-time, env var, invalid arg
+  1073 tls-verify-time, env var, no-option
+  1080 tls-verify-time command line, no arg (-option)
+  # 1081 tls-verify-time, command line, valid arg (-option=)
+  # 1082 tls-verify-time, command line, valid arg (--option=)
 
 
 
@@ -320,10 +336,10 @@
   1 --tls-key without --tls-cert is an error
 
 ./gen-tests.pl \
-    -n 1000 \
-    -o tls-verify-target \
-    -v "TLS_HOST_VERIFICATION_STRING" \
-    -i '' \
+    -n 1050 \
+    -o tls-verify-time \
+    -v "" \
+    -i 'asdfasdf' \
     -d . \
     -r \
     -s '%SWAKS% --dump TLS --to user@host1.nodns.test.swaks.net --from recip@host1.nodns.test.swaks.net --helo hserver --server "ser.ver" --tls'
