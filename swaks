@@ -837,12 +837,14 @@ sub start_tls {
 	if ($G::tls_ca_path) {
 		my @args = ('', $G::tls_ca_path);
 		@args    = ($G::tls_ca_path, '') if (-f $G::tls_ca_path);
+print STDERR "calling custom ca path (@args)\n";
 		if (!Net::SSLeay::CTX_load_verify_locations($t{con}, @args)) {
 			$t{res} = "Unable to set set CA path to (" . join(',', @args) . "): "
 			        . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
 			return(0);
 		}
 	} else {
+print STDERR "calling default ca path\n";
 		Net::SSLeay::CTX_set_default_verify_paths($t{con});
 	}
 
