@@ -12,27 +12,25 @@ if (scalar(@ARGV) != 2) {
 my $hostname = shift;
 my $portnum = shift;
 
-my $ctx = InitCTX();
+# my $ctx = InitCTX();
 
 printf("using library %s, Net::SSLeay version %s\n", Net::SSLeay::SSLeay_version(), $Net::SSLeay::VERSION);
 
 my $server = OpenConnection($hostname, $portnum);
+start_tls($server);
 
-my $ssl = Net::SSLeay::new($ctx);
-if (!$ssl) {
-	die "Error in new(): " . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
-}
-Net::SSLeay::set_fd($ssl, fileno($server)); # error check?
-if (!Net::SSLeay::connect($ssl)) {
-	die "Error in connect(): " . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
-}
-else {
-	printf("\nConnected with %s encryption\n", Net::SSLeay::get_cipher($ssl));
-}
+# my $ssl = Net::SSLeay::new($ctx);
+# if (!$ssl) {
+# 	die "Error in new(): " . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
+# }
+# Net::SSLeay::set_fd($ssl, fileno($server)); # error check?
+# if (!Net::SSLeay::connect($ssl)) {
+# 	die "Error in connect(): " . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
+# }
+# else {
+# 	printf("\nConnected with %s encryption\n", Net::SSLeay::get_cipher($ssl));
+# }
 
-Net::SSLeay::free($ssl);
-$server = undef;
-Net::SSLeay::CTX_free($ctx);
 
 exit;
 
@@ -76,4 +74,35 @@ sub OpenConnection {
 	}
 
 	return $socket;
+}
+
+sub start_tls {
+	my $server = shift;
+
+	Net::SSLeay::SSLeay_add_ssl_algorithms();
+	Net::SSLeay::load_error_strings();
+
+	my $ctx = Net::SSLeay::CTX_new();
+	if (!$ctx) {
+		die "Error in CTX_new: " . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
+	}
+
+	Net::SSLeay::CTX_set_verify($ctx, &Net::SSLeay::VERIFY_NONE, \&tls_verify_callback);
+
+	my $ssl = Net::SSLeay::new($ctx);
+	if (!$ssl) {
+		die "Error in new(): " . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
+	}
+	Net::SSLeay::set_fd($ssl, fileno($server)); # error check?
+	if (!Net::SSLeay::connect($ssl)) {
+		die "Error in connect(): " . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
+	}
+	else {
+		printf("\nConnected with %s encryption\n", Net::SSLeay::get_cipher($ssl));
+	}
+
+	Net::SSLeay::free($ssl);
+	$server = undef;
+	Net::SSLeay::CTX_free($ctx);
+
 }
