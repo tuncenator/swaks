@@ -72,6 +72,8 @@ SSL_CTX* InitCTX(void)
         abort();
     }
 
+    SSL_CTX_set_default_verify_paths(ctx);
+
     SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, tls_verify_callback);
 
 
