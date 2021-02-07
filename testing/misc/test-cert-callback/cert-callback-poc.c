@@ -51,7 +51,7 @@ int OpenConnection(const char *hostname, int port)
 
 int tls_verify_callback(int preverify_ok, X509_STORE_CTX* ctx) {
     X509 *x509 = X509_STORE_CTX_get_current_cert(ctx);
-    char *dn   = X509_NAME_oneline(X509_get_subject_name(x509));
+    char *dn   = X509_NAME_oneline(X509_get_subject_name(x509), 0, 0);
     printf("in verify callback with dn = %s\n", dn);
 
     return 1;
