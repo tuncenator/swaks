@@ -1,0 +1,148 @@
+
+
+Behaviors:
+1) callback is called once for every cert in chain, starting with the root-most certificate (this is as documented)
+2) callback is called once for every cert in the chain EXCEPT the root-most cert (smtp.pobox.com has intermediate cert. intermediate gets verified, but not root)
+
+
+Tests:
+
+swaks:
+ - ../../../swaks --server smtp.pobox.com:465 --quit tls --tlsc | grep DN=
+
+perl2 test code (basically a copy of swaks):
+ - testing/misc/test-cert-callback/cert-callback-poc2.pl smtp.pobox.com 465
+
+perl test code (basically a copy of the c code):
+ - testing/misc/test-cert-callback/cert-callback-poc.pl smtp.pobox.com 465
+
+c test code:
+ - testing/misc/test-cert-callback/cert-callback-poc smtp.pobox.com 465
+
+
+
+Environments and results:
+
+macOS 10.15.7,     Perl-5.32.0, Net::SSLeay-1.88, OpenSSL-1.1.1h -- all via homebrew
+                     cc -o cert-callback-poc-homebrew cert-callback-poc.c -I/usr/local/Cellar/openssl@1.1/1.1.1h/include/ -L /usr/local/Cellar/openssl@1.1/1.1.1h/lib -lssl -lcrypto
+ - swaks: 2
+ - perl2: 2
+ - perl: 2
+ - c: 2
+
+
+FreeBSD 12.1,      Perl-5.32.0, Net::SSLeay-1.88, OpenSSL-1.1.1g-freebsd
+                     cc -o cert-callback-poc cert-callback-poc.c -lssl -lcrypto ## errors
+ - swaks: 1
+ - perl2: 1
+ - perl: 2
+ - c:
+
+
+Debian Linux 10.6, Perl-5.28.1, Net::SSLeay-1.85, OpenSSL-1.1.1d
+                     gcc -o cert-callback-poc cert-callback-poc.c -lssl -lcrypto
+ - swaks: 1
+ - perl2: 1
+ - perl: 2
+ - c: 2
+
+
+Ubuntu 18.04.4,    Perl-5.26.1, Net::SSLeay-1.84, OpenSSL-1.1.1
+                     gcc -o cert-callback-poc cert-callback-poc.c -lssl -lcrypto
+ - swaks: 1
+ - perl: 2
+ - c: 2
+
+
+macOS 10.15.7,     Perl-5.18.4, Net::SSLeay-1.85, LibreSSL-2.8.3 -- all system defaults
+                     /usr/bin/perl ../../../swaks --server smtp.pobox.com:465 --quit tls --tlsc | grep DN=
+                     /usr/bin/perl ./cert-callback-poc.pl smtp.pobox.com 465
+                     cc -o cert-callback-poc-system cert-callback-poc.c -I/usr/local/Cellar/openssl@1.1/1.1.1h/include/ -L /usr/local/Cellar/openssl@1.1/1.1.1h/lib -lssl -lcrypto
+ - swaks: 1
+ - perl2: 1
+ - perl: 2
+ - c:
+
+
+Currently, swaks is the only thing showing me the behavior I want. I should be able to dive into what's different between swaks and the perl test code to learn more
+
+
+--
+
+OK, I've now determined that the thing separating swaks from other code was the call to Net::SSLeay::CTX_set_default_verify_paths($t{con}).  Adding that to
+C code resulted in the same behavior as swaks (presenting the root cert to the callback).
+
+Next step is to get the C code compiled on macos for both the system libs and the homebrew libs and see how they behave.  If they follow swaks' behavior, I can focus on testing openssl versions specifically.
+
+Note this could still be environmental (default paths broken in one environment?) but I don't think so - we see the same behavior in swaks when using a custom CA
+
+
+
+--
+
+ok, C compiled against homebrew libraries showed same (wrong) behavior as swaks.  I think I now need to custom-compile some different openssl versions to do differential testing
+
+
+--
+
+debian
+
+./config --prefix=/home/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1i
+cc -o cert-callback-poc-111i cert-callback-poc.c -I/home/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1i/include/ -L/home/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1i/lib -lssl -lcrypto
+LD_LIBRARY_PATH=/home/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1i/lib ./cert-callback-poc-111i smtp.pobox.com 465
+only 2 certs
+
+./config --prefix=/home/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1d
+cc -o cert-callback-poc-111d cert-callback-poc.c -I/home/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1d/include/ -L/home/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1d/lib -lssl -lcrypto
+LD_LIBRARY_PATH=/home/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1d/lib ./cert-callback-poc-111i smtp.pobox.com 465
+
+
+--
+
+macos:
+
+./config --prefix=/Users/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1i
+cc -o cert-callback-poc-111i cert-callback-poc.c -I/Users/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1i/include/ -L/Users/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1i/lib -lssl -lcrypto
+ - only two certs
+
+
+./config --prefix=/Users/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1g
+cc -o cert-callback-poc-111g cert-callback-poc.c -I/Users/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1g/include/ -L/Users/jetmore/Documents/git/swaks/tmp/openssl/openssl-1.1.1g/lib -lssl -lcrypto
+ - two certs
+
+
+
+-----------------------------------------------
+
+Let's focus explicitly on Debian since that's the easiest to compile on right now
+
+Debian Linux 10.6, Perl-5.28.1, Net::SSLeay-1.85, OpenSSL-1.1.1d
+                     gcc -o cert-callback-poc cert-callback-poc.c -lssl -lcrypto
+ - swaks: 1
+ - perl2: 1
+ - perl: 2
+ - c: 2
+
+I have two test targets:
+- Perl script running on g3(debian) that presents a cert signed by a custom ca
+    cd ~/Documents/git/swaks/testing/server
+    ./loop-server.sh --silent -i 127.0.0.1 -p 8125 --cert ../certs/127_0_0_1.crt --key ../certs/127_0_0_1.key part-0201-intialize-tls.txt
+    --
+    with correct ca:
+      openssl s_client -host 127.0.0.1 -port 8125 -CAfile ~/Documents/git/swaks/testing/certs/ca.pem | openssl x509 -text
+    with default (and incorrect) ca:
+      openssl s_client -host 127.0.0.1 -port 8125 | openssl x509 -text
+    with no ca:
+      openssl s_client -host 127.0.0.1 -port 8125 -no-CAfile -no-CApath | openssl x509 -text
+- smtp.pobox.com:465
+    with correct ca (default):
+      openssl s_client -host smtp.pobox.com -port 465 | openssl x509 -text
+    with no ca:
+      openssl s_client -host smtp.pobox.com -port 465 -no-CAfile -no-CApath | openssl x509 -text
+
+--
+test method 1: using swaks. The entire point is to get this code to work consistently everywhere
+
+
+
+

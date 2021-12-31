@@ -97,7 +97,7 @@ sub start_tls {
 
 	Net::SSLeay::CTX_set_verify($t{con}, &Net::SSLeay::VERIFY_NONE, \&tls_verify_callback);
 
-	Net::SSLeay::CTX_set_default_verify_paths($t{con});
+	# Net::SSLeay::CTX_set_default_verify_paths($t{con});
 
 	if (!($t{ssl} = Net::SSLeay::new($t{con}))) {
 		$t{res} = "new(): " . Net::SSLeay::ERR_error_string(Net::SSLeay::ERR_get_error());
