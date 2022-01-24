@@ -1563,13 +1563,19 @@ sub interact {
 }
 
 sub get_messageid {
+    my $sender_hostname = shift;
     if (!$G::message_id) {
         my @time = localtime();
-        $G::message_id = sprintf("%04d%02d%02d%02d%02d%02d.%06d\@%s",
-                                 $time[5]+1900, $time[4]+1, $time[3], $time[2], $time[1], $time[0],
-                                 $$, get_hostname());
+        if (length $sender_hostname) {
+            $G::message_id = sprintf("%04d%02d%02d%02d%02d%02d.%06d\@%s",
+                                     $time[5]+1900, $time[4]+1, $time[3], $time[2], $time[1], $time[0],
+                                     $$, $sender_hostname);
+        }else{
+            $G::message_id = sprintf("%04d%02d%02d%02d%02d%02d.%06d\@%s",
+                                     $time[5]+1900, $time[4]+1, $time[3], $time[2], $time[1], $time[0],
+                                     $$, get_hostname());
+        }
     }
-
     return($G::message_id);
 }
 
@@ -1821,9 +1827,9 @@ sub get_option_struct {
           prompt  => 'Server: ',                                           match  => '^.*$',
           okey    => 'mail_server',                                        type   => 'scalar', },
         # force hostname for message-id
-        { opts    => ['sender-hostname'],                                  suffix => '',
-          cfgs    => OP_ARG_NONE,
-          okey    => 'sender_hostname'                                     type   => 'scalar', },
+        { opts    => ['sender-hostname'],                                  suffix => ':s',
+          cfgs    => OP_ARG_REQ,
+          okey    => 'sender_hostname',                                    type   => 'scalar', },
         # force ipv4 only
         { opts    => ['4'],                                                suffix => '',
           cfgs    => OP_ARG_NONE,
@@ -3302,6 +3308,7 @@ sub process_args {
             }
         }
 
+        my $sender_hostname_t = get_arg('sender_hostname', $o);
         # Now re-assemble our data by adding the headers back on to the front
         $n{data} = $newHeader . "\r\n" . $n{data};
 
@@ -3310,7 +3317,7 @@ sub process_args {
         $n{data} =~ s/$G::tokens->{TO_ADDRESS}{regexp}/$n{to}/g;
         $n{data} =~ s/$G::tokens->{CC_ADDRESS}{regexp}/$n{cc}/g;
         $n{data} =~ s/$G::tokens->{BCC_ADDRESS}{regexp}/$n{bcc}/g;
-        $n{data} =~ s/$G::tokens->{MESSAGEID}{regexp}/get_messageid()/ge;
+        $n{data} =~ s/$G::tokens->{MESSAGEID}{regexp}/get_messageid($sender_hostname_t)/ge;
         $n{data} =~ s/$G::tokens->{SWAKS_VERSION}{regexp}/$p_version/g;
         $n{data} =~ s/$G::tokens->{DATE}{regexp}/get_date_string()/ge;
         $n{data} =~ s/^From [^\n]*\n// if (!get_arg('no_strip_from', $o));
