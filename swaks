@@ -10,6 +10,8 @@
 #       Twitter: http://www.twitter.com/SwaksSMTP
 
 use strict;
+use Mail::DKIM::Signer;
+use Mail::DKIM::TextWrap;
 use Pod::Usage;
 use File::Spec::Functions qw(splitdir);
 
@@ -1570,7 +1572,7 @@ sub get_messageid {
             $G::message_id = sprintf("%04d%02d%02d%02d%02d%02d.%06d\@%s",
                                      $time[5]+1900, $time[4]+1, $time[3], $time[2], $time[1], $time[0],
                                      $$, $sender_hostname);
-        }else{
+        } else {
             $G::message_id = sprintf("%04d%02d%02d%02d%02d%02d.%06d\@%s",
                                      $time[5]+1900, $time[4]+1, $time[3], $time[2], $time[1], $time[0],
                                      $$, get_hostname());
@@ -1830,6 +1832,18 @@ sub get_option_struct {
         { opts    => ['sender-hostname'],                                  suffix => ':s',
           cfgs    => OP_ARG_REQ,
           okey    => 'sender_hostname',                                    type   => 'scalar', },
+        # enable dkim signing
+        { opts    => ['dkim'],                                             suffix => '',
+          cfgs    => OP_ARG_NONE,
+          okey    => 'dkim',                                               type   => 'scalar', },
+        # set dkim key file
+        { opts    => ['dkim-key'],                                         suffix => ':s',
+          cfgs    => OP_ARG_OPT,
+          okey    => 'dkim_key',                                           type   => 'scalar', },
+        # set dkim selector
+        { opts    => ['dkim-selector'],                                    suffix => ':s',
+          cfgs    => OP_ARG_OPT,
+          okey    => 'dkim_selector',                                      type   => 'scalar', },
         # force ipv4 only
         { opts    => ['4'],                                                suffix => '',
           cfgs    => OP_ARG_NONE,
@@ -3308,16 +3322,20 @@ sub process_args {
             }
         }
 
-        my $sender_hostname_t = get_arg('sender_hostname', $o);
+        # Get custom hostname from opts.
+        my $sender_hostname = get_arg('sender_hostname', $o);
+
+        # Obtain dkim args from opts.
+        my $dkim_status = get_arg('dkim', $o);
+
         # Now re-assemble our data by adding the headers back on to the front
         $n{data} = $newHeader . "\r\n" . $n{data};
-
         $n{data} =~ s/\\n|$G::tokens->{NEWLINE}{regexp}/\r\n/g;
         $n{data} =~ s/$G::tokens->{FROM_ADDRESS}{regexp}/$n{from}/g;
         $n{data} =~ s/$G::tokens->{TO_ADDRESS}{regexp}/$n{to}/g;
         $n{data} =~ s/$G::tokens->{CC_ADDRESS}{regexp}/$n{cc}/g;
         $n{data} =~ s/$G::tokens->{BCC_ADDRESS}{regexp}/$n{bcc}/g;
-        $n{data} =~ s/$G::tokens->{MESSAGEID}{regexp}/get_messageid($sender_hostname_t)/ge;
+        $n{data} =~ s/$G::tokens->{MESSAGEID}{regexp}/get_messageid($sender_hostname)/ge;
         $n{data} =~ s/$G::tokens->{SWAKS_VERSION}{regexp}/$p_version/g;
         $n{data} =~ s/$G::tokens->{DATE}{regexp}/get_date_string()/ge;
         $n{data} =~ s/^From [^\n]*\n// if (!get_arg('no_strip_from', $o));
@@ -3325,6 +3343,13 @@ sub process_args {
         $n{data} =~ s/\n\./\n../g;         # quote any other leading dots
         $n{data} =~ s/([^\r])\n/$1\r\n/gs;
         $n{data} =~ s/([^\r])\n/$1\r\n/gs; # this identical call is not a bug, called twice to get consecutive \n correctly
+        if ($dkim_status) { # Setup dkim related stuff
+            my $dkim_selector = get_arg('dkim_selector', $o);
+            my $dkim_key = get_arg('dkim_key', $o);
+            my $dkim_domain = (split('@', $n{from}))[1];
+            my $dkim_header=dkim_sign($dkim_domain,$dkim_selector,$dkim_key,$n{data}); # Sign the message and obtain the dkim header.
+            $n{data} = $dkim_header . "\r\n" . $n{data}; # Merge dkim header with the rest of the payload.
+        }
         $n{data} .= "\r\n.";               # add a trailing dot
     }
 
@@ -3678,6 +3703,35 @@ sub process_args {
     }
 
     return(\%n);
+}
+
+sub dkim_sign {
+    my $domain = shift;
+    my $selector = shift;
+    my $keyfile = shift;
+    my $data = shift;
+    open my $fh, '<', \$data or die $!;
+
+    my $dkim = Mail::DKIM::Signer->new(
+        Algorithm => 'rsa-sha1',
+        Method => 'relaxed',
+        Domain => $domain,
+        Selector => $selector,
+        KeyFile => $keyfile,
+    );
+
+    while (<$fh>) {
+        chomp;
+        s/\015$//;
+        $dkim->PRINT("$_\015\012");
+    }
+    $dkim->CLOSE;
+    close $keyfile;
+    close $fh or die $!;
+    my $signature = $dkim->signature->as_string;
+
+    #print $signature->as_string;
+    return($signature);
 }
 
 sub encode_mime_part {
